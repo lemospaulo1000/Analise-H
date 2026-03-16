@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using AnaliseH3.Core.Models;
 using Microsoft.Office.Interop.Excel;
-using AnaliseH3.Core.Models;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace AnaliseH3.ExcelLayer
 {
@@ -39,12 +40,13 @@ namespace AnaliseH3.ExcelLayer
             ws.Cells[1, 7] = "Material";
             ws.Cells[1, 8] = "Redutora";
             ws.Cells[1, 9] = "Selecionada";
-            ws.Cells[1, 10] = "Classificação Risco";
-            ws.Cells[1, 11] = "Observação";
+            ws.Cells[1, 10] = "ContaNova";
+            ws.Cells[1, 11] = "Classificação Risco";
+            ws.Cells[1, 12] = "Observação";
 
             int total = contas.Count;
 
-            object[,] dados = new object[total, 11];
+            object[,] dados = new object[total, 12];
 
             for (int i = 0; i < total; i++)
             {
@@ -58,16 +60,17 @@ namespace AnaliseH3.ExcelLayer
                 dados[i, 3] = c.SaldoAtual;
                 dados[i, 4] = c.Variacao;
                 dados[i, 5] = c.VariacaoPercentual;
-
-                dados[i, 6] = ehAnalitica ? (c.Material ? "Sim" : "Não") : "";
+                dados[i, 6] = c.Material ? "Sim" : "Não";
                 dados[i, 7] = c.EhRedutora ? "Sim" : "Não";
                 dados[i, 8] = ehAnalitica ? (c.Selecionada ? "Sim" : "Não") : "";
 
-                dados[i, 9] = c.ClassificacaoRisco;
-                dados[i, 10] = c.Observacao;
+                dados[i, 9] = c.ContaNova ? "Sim" : "Não";
+
+                dados[i, 10] = c.ClassificacaoRisco;
+                dados[i, 11] = c.Observacao;
             }
 
-            Range destino = ws.Range["A2"].Resize[total, 11];
+            Range destino = ws.Range["A2"].Resize[total, 12];
 
             ws.Range["C:E"].NumberFormat = "#,##0.00";
             ws.Range["F:F"].NumberFormat = "0.00%";
@@ -76,7 +79,7 @@ namespace AnaliseH3.ExcelLayer
 
             ws.Columns[2].ColumnWidth = 70;
 
-            Range header = ws.Range["A1:K1"];
+            Range header = ws.Range["A1:L1"];
 
             header.Font.Bold = true;
             header.Interior.ColorIndex = 15;
@@ -86,7 +89,7 @@ namespace AnaliseH3.ExcelLayer
 
             for (int i = 2; i <= total + 1; i += 2)
             {
-                Range linha = ws.Range["A" + i, "K" + i];
+                Range linha = ws.Range["A" + i, "L" + i];
                 linha.Interior.Color = 242 + (242 * 256) + (242 * 65536);
             }
 
@@ -98,10 +101,38 @@ namespace AnaliseH3.ExcelLayer
 
             header.AutoFilter(1);
 
+            // agrupara por nivel hierarquico
+
+            for (int i = 0; i < total; i++)
+            {
+                var conta = contas[i].Codigo;
+
+                int zeros = conta.Reverse().TakeWhile(c => c == '0').Count();
+
+                int nivel;
+
+                switch (zeros)
+                {
+                    case 8: nivel = 1; break; // Classe
+                    case 7: nivel = 2; break; // Grupo
+                    case 6: nivel = 3; break; // Subgrupo
+                    case 5: nivel = 4; break; // Título
+                    case 4: nivel = 5; break; // Subtítulo
+                    case 3: nivel = 6; break; // Item
+                    default: nivel = 7; break; // Subitem
+                }
+
+                int linha = i + 2;
+
+                ws.Rows[linha].OutlineLevel = nivel;
+            }
+
+            ws.Outline.ShowLevels(RowLevels: 3);
+
             // AutoFit após filtro
             ws.Columns["A:A"].AutoFit();
             ws.Columns["C:F"].AutoFit();
-            ws.Columns["G:K"].AutoFit();
+            ws.Columns["G:L"].AutoFit();
         }
     }
 }

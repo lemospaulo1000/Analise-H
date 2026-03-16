@@ -16,7 +16,7 @@ namespace AnaliseH3.Core.Models
         public bool Material { get; }
         public bool EhRedutora { get; set; }
         public bool Selecionada { get; set; }
-
+        public bool ContaNova { get; set; }
         public string ClassificacaoRisco { get; set; }
         public string Observacao { get; set; }
 

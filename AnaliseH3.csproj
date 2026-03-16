@@ -190,10 +190,16 @@
     <Compile Include="Core\Models\ContaComparativa.cs" />
     <Compile Include="Core\Models\ContaPeriodo.cs" />
     <Compile Include="Core\Models\PeriodoContabil.cs" />
+    <Compile Include="Core\Models\ReclassificacaoConta.cs" />
     <Compile Include="Core\Services\AnaliseComparativa.cs" />
+    <Compile Include="Core\Services\DetectorContasRemovidas.cs" />
+    <Compile Include="Core\Services\DetectorReclassificacoes.cs" />
     <Compile Include="ExcelLayer\ExecutorAnalise.cs" />
+    <Compile Include="ExcelLayer\GeradorContasRemovidas.cs" />
+    <Compile Include="ExcelLayer\GeradorDrillDownConta.cs" />
     <Compile Include="ExcelLayer\GeradorMaterialidade.cs" />
     <Compile Include="ExcelLayer\GeradorPlanilhaComparativo.cs" />
+    <Compile Include="ExcelLayer\GeradorReclassificacoes.cs" />
     <Compile Include="ExcelLayer\LeitorBalanceteExcel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>

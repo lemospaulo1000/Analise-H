@@ -72,7 +72,9 @@ namespace AnaliseH3.Core.Services
 
             foreach (var codigo in todosCodigos)
             {
-                double saldoAtual = _periodoAtual.ContemConta(codigo)
+                bool existeAtual = _periodoAtual.ContemConta(codigo);
+
+                double saldoAtual = existeAtual
                     ? _periodoAtual.ObterConta(codigo).SaldoAtual
                     : 0.0;
 
@@ -84,7 +86,7 @@ namespace AnaliseH3.Core.Services
                     ? saldosBase.Average()
                     : 0.0;
 
-                string descricao = _periodoAtual.ContemConta(codigo)
+                string descricao = existeAtual
                     ? _periodoAtual.ObterConta(codigo).Descricao
                     : periodosBase
                         .Select(p => p.ObterConta(codigo))
@@ -98,14 +100,22 @@ namespace AnaliseH3.Core.Services
                     _limiteMaterialidade.Value
                 );
 
-                // -------- NOVA LÓGICA DE RELEVÂNCIA --------
+                // ---------------------------------
+                // DETECÇÃO DE CONTA NOVA
+                // ---------------------------------
 
-                double variacaoPercentual = 0;
+                bool contaNova =
+                    existeAtual &&
+                    !periodosBase.Any(p => p.ContemConta(codigo));
 
-                if (mediaBase != 0)
-                    variacaoPercentual = Math.Abs(contaComparativa.Variacao) / Math.Abs(mediaBase);
+                contaComparativa.ContaNova = contaNova;
 
-                bool variacaoRelevante = contaComparativa.VariacaoPercentual >= 0.10;
+                // ---------------------------------
+                // REGRA DE SELEÇÃO
+                // ---------------------------------
+
+                bool variacaoRelevante =
+                    contaComparativa.VariacaoPercentual >= 0.10;
 
                 contaComparativa.Selecionada =
                     contaComparativa.Material && variacaoRelevante;

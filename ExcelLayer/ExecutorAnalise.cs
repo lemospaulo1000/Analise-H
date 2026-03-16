@@ -1,89 +1,330 @@
 ﻿using System;
+using System.Linq;
 using System.Windows.Forms;
 using Excel = Microsoft.Office.Interop.Excel;
 using AnaliseH3.ExcelLayer;
 using AnaliseH3.Core.Services;
+using AnaliseH3.Core.Models;
+using System.Collections.Generic;
 
 namespace AnaliseH3
 {
     public class ExecutorAnalise
     {
+        public static List<ContaComparativa> ResultadoAnalise { get; private set; }
+
         public void Executar(Excel.Application excelApp)
         {
             try
             {
-                var leitor = new LeitorBalanceteExcel();
+                var caminhos = SelecionarArquivos();
 
-                // selecionar arquivos
-                var dialog = new OpenFileDialog();
-                dialog.Title = "Selecione o Balancete Anterior";
-                dialog.Filter = "Arquivos Excel (*.xls;*.xlsx)|*.xls;*.xlsx";
-
-                if (dialog.ShowDialog() != DialogResult.OK)
+                if (caminhos == null)
                     return;
 
-                var caminhoAnterior = dialog.FileName;
+                var balancetes = LerBalancetes(excelApp, caminhos.Item1, caminhos.Item2);
 
-                dialog.Title = "Selecione o Balancete Atual";
+                var analise = CriarAnalise(balancetes.Item1, balancetes.Item2);
 
-                if (dialog.ShowDialog() != DialogResult.OK)
-                    return;
+                double saldoAtivo = ObterSaldoAtivo(balancetes.Item2);
 
-                var caminhoAtual = dialog.FileName;
-
-                if (caminhoAnterior == caminhoAtual)
-                {
-                    MessageBox.Show(
-                        "O balancete anterior e o atual são o mesmo arquivo.\n\nSelecione arquivos diferentes.",
-                        "Análise-H 3.0"
-                    );
-                    return;
-                }
-
-                // ler balancetes
-                var balanceteAnterior = leitor.Ler(excelApp, caminhoAnterior, "Anterior");
-                var balanceteAtual = leitor.Ler(excelApp, caminhoAtual, "Atual");
-
-                // criar análise
-                var analise = new AnaliseComparativa();
-
-                analise.AdicionarBalancete(balanceteAnterior);
-                analise.AdicionarBalancete(balanceteAtual);
-
-                analise.DefinirPeriodoAtual("Atual");
-
-                // pegar saldo do ativo
-                var contaAtivo = balanceteAtual.ObterConta("100000000");
-
-                double saldoAtivo = 0;
-
-                if (contaAtivo != null)
-                    saldoAtivo = Math.Abs(contaAtivo.SaldoAtual);
-
-                // gerar planilha Materialidade
-                var geradorMaterialidade = new GeradorMaterialidade();
-                geradorMaterialidade.Gerar(excelApp, saldoAtivo);
-
-                // definir limite de materialidade
                 double materialidade = saldoAtivo * 0.01;
 
                 analise.DefinirLimiteMaterialidade(materialidade);
 
-                // executar comparação
                 var resultado = analise.ExecutarComparacao();
+                ResultadoAnalise = resultado;
 
-                var gerador = new GeradorPlanilhaComparativo();
-                gerador.Gerar(excelApp, resultado);
-                
-                MessageBox.Show(
-                    $"Comparação executada.\n\n" +
-                    $"Contas analisadas: {resultado.Count}",
-                    "Análise-H 3.0"
-                );
+                var wb = excelApp.ActiveWorkbook;
+
+                RemoverPlanilhaSeExistir(wb, "Comparativo");
+                RemoverPlanilhaSeExistir(wb, "Materialidade");
+                RemoverPlanilhaSeExistir(wb, "ContasRemovidas");
+                RemoverPlanilhaSeExistir(wb, "Reclassificacoes");
+
+                // =============================
+                // COMPARATIVO
+                // =============================
+
+                GerarComparativo(excelApp, resultado);
+
+                // =============================
+                // MATERIALIDADE
+                // =============================
+
+                GerarMaterialidade(excelApp, saldoAtivo);
+
+                var contasRemovidas = DetectarContasRemovidas(analise);
+
+                GerarPlanilhaRemovidas(excelApp, contasRemovidas);
+
+                // =============================
+                // RECLASSIFICAÇÕES
+                // =============================
+
+                var reclassificacoes = DetectarReclassificacoes(contasRemovidas, resultado);
+
+                GerarPlanilhaReclassificacoes(excelApp, reclassificacoes);
+
+                // =============================
+                // ORGANIZAR ABAS
+                // =============================
+
+                OrganizarAbas(excelApp);
+
+                // =============================
+                // ATIVAR COMPARATIVO
+                // =============================
+
+                AtivarComparativo(excelApp);
+
+                MostrarResultado(resultado.Count, contasRemovidas.Count);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.ToString(), "Erro");
+            }
+        }
+
+        private Tuple<string, string> SelecionarArquivos()
+        {
+            var dialog = new OpenFileDialog();
+            dialog.Filter = "Arquivos Excel (*.xls;*.xlsx)|*.xls;*.xlsx";
+
+            dialog.Title = "Selecione o Balancete Anterior";
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+                return null;
+
+            var anterior = dialog.FileName;
+
+            dialog.Title = "Selecione o Balancete Atual";
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+                return null;
+
+            var atual = dialog.FileName;
+
+            if (anterior == atual)
+            {
+                MessageBox.Show(
+                    "O balancete anterior e o atual são o mesmo arquivo.\n\nSelecione arquivos diferentes.",
+                    "Análise-H 3.0"
+                );
+                return null;
+            }
+
+            return Tuple.Create(anterior, atual);
+        }
+
+        private Tuple<Balancete, Balancete> LerBalancetes(
+            Excel.Application excelApp,
+            string anterior,
+            string atual)
+        {
+            var leitor = new LeitorBalanceteExcel();
+
+            var balanceteAnterior = leitor.Ler(excelApp, anterior, "Anterior");
+            var balanceteAtual = leitor.Ler(excelApp, atual, "Atual");
+
+            return Tuple.Create(balanceteAnterior, balanceteAtual);
+        }
+
+        private AnaliseComparativa CriarAnalise(
+            Balancete anterior,
+            Balancete atual)
+        {
+            var analise = new AnaliseComparativa();
+
+            analise.AdicionarBalancete(anterior);
+            analise.AdicionarBalancete(atual);
+
+            analise.DefinirPeriodoAtual("Atual");
+
+            return analise;
+        }
+
+        private double ObterSaldoAtivo(Balancete balanceteAtual)
+        {
+            var contaAtivo = balanceteAtual.ObterConta("100000000");
+
+            if (contaAtivo != null)
+                return Math.Abs(contaAtivo.SaldoAtual);
+
+            return 0;
+        }
+
+        private void GerarMaterialidade(
+            Excel.Application excelApp,
+            double saldoAtivo)
+        {
+            var geradorMaterialidade = new GeradorMaterialidade();
+            geradorMaterialidade.Gerar(excelApp, saldoAtivo);
+        }
+
+        private void GerarComparativo(
+            Excel.Application excelApp,
+            List<ContaComparativa> resultado)
+        {
+            var gerador = new GeradorPlanilhaComparativo();
+            gerador.Gerar(excelApp, resultado);
+        }
+
+        private List<ContaPeriodo> DetectarContasRemovidas(
+            AnaliseComparativa analise)
+        {
+            var detectorRemovidas = new DetectorContasRemovidas();
+
+            var periodosBase = analise.Periodos
+                .Where(p => p != analise.PeriodoAtual)
+                .ToList();
+
+            return detectorRemovidas.ObterContasRemovidas(
+                analise.PeriodoAtual,
+                periodosBase
+            );
+        }
+
+        private void GerarPlanilhaRemovidas(
+            Excel.Application excelApp,
+            List<ContaPeriodo> contasRemovidas)
+        {
+            var workbook = excelApp.ActiveWorkbook;
+
+            var geradorRemovidas = new GeradorContasRemovidas();
+
+            geradorRemovidas.Gerar(
+                workbook,
+                contasRemovidas
+            );
+        }
+
+        private List<ReclassificacaoConta> DetectarReclassificacoes(
+            List<ContaPeriodo> contasRemovidas,
+            List<ContaComparativa> comparativo)
+        {
+            var detector = new DetectorReclassificacoes();
+
+            return detector.Detectar(
+                contasRemovidas,
+                comparativo
+            );
+        }
+
+        private void GerarPlanilhaReclassificacoes(
+            Excel.Application excelApp,
+            List<ReclassificacaoConta> reclassificacoes)
+        {
+            var workbook = excelApp.ActiveWorkbook;
+
+            var gerador = new GeradorReclassificacoes();
+
+            gerador.Gerar(
+                workbook,
+                reclassificacoes
+            );
+        }
+
+        private void OrganizarAbas(Excel.Application excelApp)
+        {
+            var wb = excelApp.ActiveWorkbook;
+
+            if (wb == null)
+                return;
+
+            try
+            {
+                Excel.Worksheet comparativo = null;
+                Excel.Worksheet materialidade = null;
+                Excel.Worksheet removidas = null;
+                Excel.Worksheet reclassificacoes = null;
+
+                foreach (Excel.Worksheet ws in wb.Worksheets)
+                {
+                    if (ws.Name == "Comparativo")
+                        comparativo = ws;
+
+                    else if (ws.Name == "Materialidade")
+                        materialidade = ws;
+
+                    else if (ws.Name == "ContasRemovidas")
+                        removidas = ws;
+
+                    else if (ws.Name == "Reclassificacoes")
+                        reclassificacoes = ws;
+                }
+
+                if (comparativo != null)
+                    comparativo.Move(Before: wb.Worksheets[1]);
+
+                if (materialidade != null && comparativo != null)
+                    materialidade.Move(After: comparativo);
+
+                if (removidas != null && materialidade != null)
+                    removidas.Move(After: materialidade);
+
+                if (reclassificacoes != null && removidas != null)
+                    reclassificacoes.Move(After: removidas);
+            }
+            catch
+            {
+            }
+        }
+
+        private void AtivarComparativo(Excel.Application excelApp)
+        {
+            var wb = excelApp.ActiveWorkbook;
+
+            if (wb == null)
+                return;
+
+            foreach (Excel.Worksheet ws in wb.Worksheets)
+            {
+                if (ws.Name == "Comparativo")
+                {
+                    ws.Activate();
+                    ws.Cells[1, 1].Select();
+                    return;
+                }
+            }
+        }
+
+        private void MostrarResultado(
+            int contasAnalisadas,
+            int contasRemovidas)
+        {
+            MessageBox.Show(
+                $"Comparação executada.\n\n" +
+                $"Contas analisadas: {contasAnalisadas}\n" +
+                $"Contas removidas: {contasRemovidas}",
+                "Análise-H 3.0"
+            );
+        }
+
+        private void RemoverPlanilhaSeExistir(Excel.Workbook wb, string nome)
+        {
+            Excel.Worksheet ws = null;
+
+            foreach (Excel.Worksheet sheet in wb.Worksheets)
+            {
+                if (sheet.Name == nome)
+                {
+                    ws = sheet;
+                    break;
+                }
+            }
+
+            if (ws != null)
+            {
+                var excel = wb.Application;
+
+                bool alerts = excel.DisplayAlerts;
+
+                excel.DisplayAlerts = false;
+
+                ws.Delete();
+
+                excel.DisplayAlerts = alerts;
             }
         }
     }
