@@ -1,5 +1,6 @@
 ﻿using AnaliseH3.Core.Models;
 using Microsoft.Office.Interop.Excel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -41,12 +42,13 @@ namespace AnaliseH3.ExcelLayer
             ws.Cells[1, 8] = "Redutora";
             ws.Cells[1, 9] = "Selecionada";
             ws.Cells[1, 10] = "ContaNova";
-            ws.Cells[1, 11] = "Classificação Risco";
-            ws.Cells[1, 12] = "Observação";
+            ws.Cells[1, 11] = "Score Risco";
+            ws.Cells[1, 12] = "Classificação Risco";
+            ws.Cells[1, 13] = "Observação";
 
             int total = contas.Count;
 
-            object[,] dados = new object[total, 12];
+            object[,] dados = new object[total, 13];
 
             for (int i = 0; i < total; i++)
             {
@@ -63,14 +65,13 @@ namespace AnaliseH3.ExcelLayer
                 dados[i, 6] = c.Material ? "Sim" : "Não";
                 dados[i, 7] = c.EhRedutora ? "Sim" : "Não";
                 dados[i, 8] = ehAnalitica ? (c.Selecionada ? "Sim" : "Não") : "";
-
                 dados[i, 9] = c.ContaNova ? "Sim" : "Não";
-
-                dados[i, 10] = c.ClassificacaoRisco;
-                dados[i, 11] = c.Observacao;
+                dados[i, 10] = c.ScoreRisco;
+                dados[i, 11] = c.ClassificacaoRisco;
+                dados[i, 12] = c.Observacao;
             }
 
-            Range destino = ws.Range["A2"].Resize[total, 12];
+            Range destino = ws.Range["A2"].Resize[total, 13];
 
             ws.Range["C:E"].NumberFormat = "#,##0.00";
             ws.Range["F:F"].NumberFormat = "0.00%";
@@ -79,18 +80,17 @@ namespace AnaliseH3.ExcelLayer
 
             ws.Columns[2].ColumnWidth = 70;
 
-            Range header = ws.Range["A1:L1"];
+            Range header = ws.Range["A1:M1"];
 
             header.Font.Bold = true;
             header.Interior.ColorIndex = 15;
             header.HorizontalAlignment = XlHAlign.xlHAlignCenter;
 
             // ===== ZEBRADO =====
-
             for (int i = 2; i <= total + 1; i += 2)
             {
-                Range linha = ws.Range["A" + i, "L" + i];
-                linha.Interior.Color = 242 + (242 * 256) + (242 * 65536);
+                Range linhaZebra = ws.Range["A" + i, "M" + i];
+                linhaZebra.Interior.Color = 242 + (242 * 256) + (242 * 65536);
             }
 
             // congelar cabeçalho
@@ -101,11 +101,11 @@ namespace AnaliseH3.ExcelLayer
 
             header.AutoFilter(1);
 
-            // agrupara por nivel hierarquico
-
+            // ===== AGRUPAMENTO HIERÁRQUICO =====
             for (int i = 0; i < total; i++)
             {
-                var conta = contas[i].Codigo;
+                var contaObj = contas[i];
+                string conta = contaObj.Codigo;
 
                 int zeros = conta.Reverse().TakeWhile(c => c == '0').Count();
 
@@ -113,26 +113,177 @@ namespace AnaliseH3.ExcelLayer
 
                 switch (zeros)
                 {
-                    case 8: nivel = 1; break; // Classe
-                    case 7: nivel = 2; break; // Grupo
-                    case 6: nivel = 3; break; // Subgrupo
-                    case 5: nivel = 4; break; // Título
-                    case 4: nivel = 5; break; // Subtítulo
-                    case 3: nivel = 6; break; // Item
-                    default: nivel = 7; break; // Subitem
+                    case 8: nivel = 1; break;
+                    case 7: nivel = 2; break;
+                    case 6: nivel = 3; break;
+                    case 5: nivel = 4; break;
+                    case 4: nivel = 5; break;
+                    case 3:
+                    case 2: nivel = 6; break;
+                    default: nivel = 7; break;
                 }
 
                 int linha = i + 2;
 
                 ws.Rows[linha].OutlineLevel = nivel;
+
+                if (nivel == 3 && contaObj.Material)
+                {
+                    Range linhaExcel = ws.Rows[linha];
+                    linhaExcel.Font.Bold = true;
+                    linhaExcel.Interior.Color = 13434879;
+                }
+            }
+
+            // expandir subgrupos
+            for (int linha = 2; linha <= total + 1; linha++)
+            {
+                Range linhaExcel = ws.Rows[linha];
+
+                if (linhaExcel.Font.Bold)
+                {
+                    try
+                    {
+                        linhaExcel.ShowDetail = true;
+                    }
+                    catch { }
+                }
             }
 
             ws.Outline.ShowLevels(RowLevels: 3);
 
-            // AutoFit após filtro
             ws.Columns["A:A"].AutoFit();
             ws.Columns["C:F"].AutoFit();
-            ws.Columns["G:L"].AutoFit();
+            ws.Columns["G:M"].AutoFit();
+
+            // ===== RADAR =====
+            GerarRadarDistorcoes(wb, contas);
+        }
+
+        private void GerarRadarDistorcoes(Workbook wb, List<ContaComparativa> contas)
+        {
+            Worksheet ws = null;
+
+            foreach (Worksheet sheet in wb.Worksheets)
+            {
+                if (sheet.Name == "RadarDistorcoes")
+                {
+                    ws = sheet;
+                    break;
+                }
+            }
+
+            if (ws != null)
+                ws.Delete();
+
+            ws = wb.Worksheets.Add();
+            ws.Name = "RadarDistorcoes";
+
+            var topContas = contas
+                .OrderByDescending(c => c.ScoreRisco)
+                .ThenByDescending(c => Math.Abs(c.Variacao))
+                .Take(20)
+                .ToList();
+
+            ws.Cells[1, 1] = "Conta";
+            ws.Cells[1, 2] = "Descrição";
+            ws.Cells[1, 3] = "Saldo Atual";
+            ws.Cells[1, 4] = "Variação";
+            ws.Cells[1, 5] = "Score Risco";
+            ws.Cells[1, 6] = "Classificação";
+
+            int total = topContas.Count;
+
+            object[,] dados = new object[total, 6];
+
+            for (int i = 0; i < total; i++)
+            {
+                var c = topContas[i];
+
+                dados[i, 0] = c.Codigo;
+                dados[i, 1] = c.Descricao;
+                dados[i, 2] = c.SaldoAtual;
+                dados[i, 3] = c.Variacao;
+                dados[i, 4] = c.ScoreRisco;
+                dados[i, 5] = c.ClassificacaoRisco;
+            }
+
+            Range destino = ws.Range["A2"].Resize[total, 6];
+            destino.Value2 = dados;
+
+            ws.Range["C:D"].NumberFormat = "#,##0.00";
+
+            Range header = ws.Range["A1:F1"];
+            header.Font.Bold = true;
+            header.Interior.ColorIndex = 15;
+
+            ws.Columns["A:F"].AutoFit();
+
+            // 🔹 CHAMA RADAR POR SUBGRUPO
+            GerarRadarSubgrupos(wb, contas);
+        }
+
+        private void GerarRadarSubgrupos(Workbook wb, List<ContaComparativa> contas)
+        {
+            Worksheet ws = null;
+
+            foreach (Worksheet sheet in wb.Worksheets)
+            {
+                if (sheet.Name == "RadarSubgrupos")
+                {
+                    ws = sheet;
+                    break;
+                }
+            }
+
+            if (ws != null)
+                ws.Delete();
+
+            ws = wb.Worksheets.Add();
+            ws.Name = "RadarSubgrupos";
+
+            var grupos = contas
+                .Where(c => !string.IsNullOrEmpty(c.Codigo) && c.Codigo.Length >= 3)
+                .GroupBy(c => c.Codigo.Substring(0, 3))
+                .Select(g => new
+                {
+                    Subgrupo = g.Key,
+                    ScoreTotal = g.Sum(x => x.ScoreRisco),
+                    VariacaoTotal = g.Sum(x => x.Variacao),
+                    QuantidadeContas = g.Count()
+                })
+                .OrderByDescending(g => g.ScoreTotal)
+                .ToList();
+
+            ws.Cells[1, 1] = "Subgrupo";
+            ws.Cells[1, 2] = "Score Total";
+            ws.Cells[1, 3] = "Variação Total";
+            ws.Cells[1, 4] = "Qtd Contas";
+
+            int total = grupos.Count;
+
+            object[,] dados = new object[total, 4];
+
+            for (int i = 0; i < total; i++)
+            {
+                var g = grupos[i];
+
+                dados[i, 0] = g.Subgrupo;
+                dados[i, 1] = g.ScoreTotal;
+                dados[i, 2] = g.VariacaoTotal;
+                dados[i, 3] = g.QuantidadeContas;
+            }
+
+            Range destino = ws.Range["A2"].Resize[total, 4];
+            destino.Value2 = dados;
+
+            ws.Range["C:C"].NumberFormat = "#,##0.00";
+
+            Range header = ws.Range["A1:D1"];
+            header.Font.Bold = true;
+            header.Interior.ColorIndex = 15;
+
+            ws.Columns["A:D"].AutoFit();
         }
     }
 }

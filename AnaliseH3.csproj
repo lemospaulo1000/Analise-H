@@ -194,6 +194,7 @@
     <Compile Include="Core\Services\AnaliseComparativa.cs" />
     <Compile Include="Core\Services\DetectorContasRemovidas.cs" />
     <Compile Include="Core\Services\DetectorReclassificacoes.cs" />
+    <Compile Include="ExcelLayer\ComandoDestacarSubgrupos.cs" />
     <Compile Include="ExcelLayer\ExecutorAnalise.cs" />
     <Compile Include="ExcelLayer\GeradorContasRemovidas.cs" />
     <Compile Include="ExcelLayer\GeradorDrillDownConta.cs" />

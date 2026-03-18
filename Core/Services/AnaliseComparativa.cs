@@ -100,25 +100,21 @@ namespace AnaliseH3.Core.Services
                     _limiteMaterialidade.Value
                 );
 
-                // ---------------------------------
-                // DETECÇÃO DE CONTA NOVA
-                // ---------------------------------
-
-                bool contaNova =
+                contaComparativa.ContaNova =
                     existeAtual &&
                     !periodosBase.Any(p => p.ContemConta(codigo));
 
-                contaComparativa.ContaNova = contaNova;
-
-                // ---------------------------------
-                // REGRA DE SELEÇÃO
-                // ---------------------------------
+                contaComparativa.ContaRemovida =
+                    !existeAtual &&
+                    periodosBase.Any(p => p.ContemConta(codigo));
 
                 bool variacaoRelevante =
-                    contaComparativa.VariacaoPercentual >= 0.10;
+                    Math.Abs(contaComparativa.VariacaoPercentual) >= 0.10;
 
                 contaComparativa.Selecionada =
                     contaComparativa.Material && variacaoRelevante;
+
+                CalcularScoreRisco(contaComparativa, _limiteMaterialidade.Value);
 
                 resultado.Add(contaComparativa);
             }
@@ -126,6 +122,33 @@ namespace AnaliseH3.Core.Services
             return resultado
                 .OrderBy(c => c.Codigo)
                 .ToList();
+        }
+
+        private void CalcularScoreRisco(ContaComparativa conta, double materialidade)
+        {
+            int score = 0;
+
+            if (conta.Material)
+                score += 50;
+
+            if (conta.MediaBase != 0)
+            {
+                double variacaoPercentual = conta.Variacao / conta.MediaBase;
+
+                if (Math.Abs(variacaoPercentual) > 0.3)
+                    score += 20;
+            }
+
+            if (conta.ContaNova)
+                score += 15;
+
+            if (conta.ContaRemovida)
+                score += 15;
+
+            if (Math.Abs(conta.Variacao) > materialidade)
+                score += 20;
+
+            conta.ScoreRisco = score;
         }
     }
 }

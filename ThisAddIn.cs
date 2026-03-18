@@ -11,7 +11,6 @@ namespace AnaliseH3
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
             // inicialização do add-in
-
             this.Application.SheetBeforeDoubleClick += Application_SheetBeforeDoubleClick;
         }
 
@@ -30,19 +29,26 @@ namespace AnaliseH3
         {
             try
             {
+                if (Target == null)
+                    return;
+
+                if (Target.Cells.Count > 1)
+                    return;
+
                 Excel.Worksheet ws = Sh as Excel.Worksheet;
 
                 if (ws == null)
                     return;
 
-                // apenas na planilha Comparativo
-                if (ws.Name != "Comparativo")
+                // Apenas na planilha Comparativo
+                if (!string.Equals(ws.Name, "Comparativo", StringComparison.OrdinalIgnoreCase))
                     return;
 
-                // apenas na coluna Conta
+                // Apenas coluna Conta
                 if (Target.Column != 1)
                     return;
 
+                // Ignorar cabeçalho
                 if (Target.Row < 2)
                     return;
 
@@ -56,15 +62,19 @@ namespace AnaliseH3
                 if (string.IsNullOrWhiteSpace(codigo))
                     return;
 
-                // cancelar comportamento padrão do Excel
+                // Cancelar comportamento padrão do Excel
                 Cancel = true;
 
                 var contas = ExecutorAnalise.ResultadoAnalise;
 
+                // Caso o usuário tenha reaberto o arquivo
                 if (contas == null)
                 {
                     contas = ReconstruirContasDaPlanilha(ws);
                 }
+
+                if (contas == null || contas.Count == 0)
+                    return;
 
                 var gerador = new GeradorDrillDownConta();
 
@@ -80,7 +90,9 @@ namespace AnaliseH3
             }
         }
 
-        #region Código gerado por VSTO
+        // =====================================================
+        // RECONSTRUIR CONTAS CASO ARQUIVO TENHA SIDO REABERTO
+        // =====================================================
 
         private List<ContaComparativa> ReconstruirContasDaPlanilha(Excel.Worksheet ws)
         {
@@ -98,8 +110,17 @@ namespace AnaliseH3
                 string conta = codigo.ToString();
                 string descricao = ws.Cells[linha, 2].Value2?.ToString() ?? "";
 
-                double saldoAnterior = ws.Cells[linha, 3].Value2 ?? 0;
-                double saldoAtual = ws.Cells[linha, 4].Value2 ?? 0;
+                double saldoAnterior = 0;
+                double saldoAtual = 0;
+
+                var v1 = ws.Cells[linha, 3].Value2;
+                var v2 = ws.Cells[linha, 4].Value2;
+
+                if (v1 != null)
+                    saldoAnterior = Convert.ToDouble(v1);
+
+                if (v2 != null)
+                    saldoAtual = Convert.ToDouble(v2);
 
                 var c = new ContaComparativa(
                     conta,
@@ -116,6 +137,8 @@ namespace AnaliseH3
 
             return lista;
         }
+
+        #region Código gerado por VSTO
 
         private void InternalStartup()
         {

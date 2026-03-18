@@ -17,8 +17,22 @@ namespace AnaliseH3.Core.Models
         public bool EhRedutora { get; set; }
         public bool Selecionada { get; set; }
         public bool ContaNova { get; set; }
-        public string ClassificacaoRisco { get; set; }
+        public bool ContaRemovida { get; set; } // 🔹 NOVO
+
         public string Observacao { get; set; }
+
+        public int ScoreRisco { get; set; }
+
+        // 🔹 AGORA DERIVADO (não setável manualmente)
+        public string ClassificacaoRisco
+        {
+            get
+            {
+                if (ScoreRisco >= 70) return "Alto";
+                if (ScoreRisco >= 40) return "Médio";
+                return "Baixo";
+            }
+        }
 
         public ContaComparativa(
             string codigo,
@@ -44,8 +58,11 @@ namespace AnaliseH3.Core.Models
 
             EhRedutora = false;
             Selecionada = false;
-            ClassificacaoRisco = "";
+            ContaNova = false;
+            ContaRemovida = false; // 🔹 NOVO
+
             Observacao = "";
+            ScoreRisco = 0;
         }
     }
 }

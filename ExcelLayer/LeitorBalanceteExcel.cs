@@ -11,6 +11,7 @@ namespace AnaliseH3.ExcelLayer
         public Balancete Ler(Application excelApp, string caminhoArquivo, string identificador)
         {
             Workbook workbook = null;
+            Worksheet worksheet = null;
 
             try
             {
@@ -19,9 +20,10 @@ namespace AnaliseH3.ExcelLayer
                     ReadOnly: true
                 );
 
-                Worksheet worksheet = workbook.Worksheets[1];
+                worksheet = workbook.Worksheets[1];
 
                 // ----- Ler Competência (D7) -----
+
                 var competenciaRaw = worksheet.Range["D7"].Value2?.ToString()?.Trim();
 
                 if (string.IsNullOrWhiteSpace(competenciaRaw))
@@ -36,15 +38,30 @@ namespace AnaliseH3.ExcelLayer
                 int ano = int.Parse(partesData[1]);
 
                 var periodoContabil = new PeriodoContabil(mes, ano);
+
                 var balancete = new Balancete(identificador, periodoContabil);
 
-                // ----- Ler dados a partir da linha 10 -----
-                Range usedRange = worksheet.UsedRange;
-                object[,] dados = usedRange.Value2;
+                // --------------------------------------------------
+                // DESCOBRIR ÚLTIMA LINHA REAL
+                // --------------------------------------------------
 
-                int totalLinhas = dados.GetLength(0);
+                int ultimaLinha =
+                    worksheet.Cells[worksheet.Rows.Count, 1]
+                    .End(XlDirection.xlUp)
+                    .Row;
 
-                for (int linha = 10; linha <= totalLinhas; linha++)
+                if (ultimaLinha < 10)
+                    return balancete;
+
+                // --------------------------------------------------
+                // LER BLOCO DE DADOS EM UMA ÚNICA OPERAÇÃO
+                // --------------------------------------------------
+
+                Range range = worksheet.Range["A1", $"F{ultimaLinha}"];
+
+                object[,] dados = range.Value2;
+
+                for (int linha = 10; linha <= ultimaLinha; linha++)
                 {
                     var contaRaw = dados[linha, 1]?.ToString()?.Trim();
 
@@ -67,7 +84,12 @@ namespace AnaliseH3.ExcelLayer
                     double saldoAtual = 0.0;
 
                     if (dados[linha, 5] != null)
-                        saldoAtual = Convert.ToDouble(dados[linha, 5]);
+                    {
+                        if (dados[linha, 5] is double valor)
+                            saldoAtual = valor;
+                        else
+                            saldoAtual = Convert.ToDouble(dados[linha, 5]);
+                    }
 
                     var dc = dados[linha, 6]?.ToString()?.Trim();
 
@@ -79,6 +101,7 @@ namespace AnaliseH3.ExcelLayer
                         continue;
 
                     var conta = new ContaPeriodo(codigo, descricao, saldoAtual);
+
                     conta.EhRedutora = ehRedutora;
 
                     balancete.AdicionarConta(conta);
@@ -91,7 +114,12 @@ namespace AnaliseH3.ExcelLayer
                 if (workbook != null)
                 {
                     workbook.Close(false);
-                    System.Runtime.InteropServices.Marshal.ReleaseComObject(workbook);
+                    Marshal.ReleaseComObject(workbook);
+                }
+
+                if (worksheet != null)
+                {
+                    Marshal.ReleaseComObject(worksheet);
                 }
             }
         }

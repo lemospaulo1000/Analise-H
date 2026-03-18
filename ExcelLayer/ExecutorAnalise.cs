@@ -15,14 +15,37 @@ namespace AnaliseH3
 
         public void Executar(Excel.Application excelApp)
         {
+            var app = excelApp;
+
+            bool screen = app.ScreenUpdating;
+            bool events = app.EnableEvents;
+            bool alerts = app.DisplayAlerts;
+            Excel.XlCalculation calc = app.Calculation;
+
             try
             {
+                app.ScreenUpdating = false;
+                app.EnableEvents = false;
+                app.DisplayAlerts = false;
+                app.Calculation = Excel.XlCalculation.xlCalculationManual;
+
+                // =============================
+                // CRIAR NOVO WORKBOOK PARA A ANÁLISE
+                // =============================
+
+                var wbNovo = app.Workbooks.Add();
+                wbNovo.Activate();
+
+                // =============================
+                // SELECIONAR BALANCETES
+                // =============================
+
                 var caminhos = SelecionarArquivos();
 
                 if (caminhos == null)
                     return;
 
-                var balancetes = LerBalancetes(excelApp, caminhos.Item1, caminhos.Item2);
+                var balancetes = LerBalancetes(app, caminhos.Item1, caminhos.Item2);
 
                 var analise = CriarAnalise(balancetes.Item1, balancetes.Item2);
 
@@ -35,54 +58,43 @@ namespace AnaliseH3
                 var resultado = analise.ExecutarComparacao();
                 ResultadoAnalise = resultado;
 
-                var wb = excelApp.ActiveWorkbook;
-
-                RemoverPlanilhaSeExistir(wb, "Comparativo");
-                RemoverPlanilhaSeExistir(wb, "Materialidade");
-                RemoverPlanilhaSeExistir(wb, "ContasRemovidas");
-                RemoverPlanilhaSeExistir(wb, "Reclassificacoes");
-
                 // =============================
-                // COMPARATIVO
+                // GERAR PLANILHAS
                 // =============================
 
-                GerarComparativo(excelApp, resultado);
+                GerarComparativo(app, resultado);
 
-                // =============================
-                // MATERIALIDADE
-                // =============================
-
-                GerarMaterialidade(excelApp, saldoAtivo);
+                GerarMaterialidade(app, saldoAtivo);
 
                 var contasRemovidas = DetectarContasRemovidas(analise);
 
-                GerarPlanilhaRemovidas(excelApp, contasRemovidas);
-
-                // =============================
-                // RECLASSIFICAÇÕES
-                // =============================
+                GerarPlanilhaRemovidas(app, contasRemovidas);
 
                 var reclassificacoes = DetectarReclassificacoes(contasRemovidas, resultado);
 
-                GerarPlanilhaReclassificacoes(excelApp, reclassificacoes);
+                GerarPlanilhaReclassificacoes(app, reclassificacoes);
 
                 // =============================
                 // ORGANIZAR ABAS
                 // =============================
 
-                OrganizarAbas(excelApp);
+                OrganizarAbas(app);
 
-                // =============================
-                // ATIVAR COMPARATIVO
-                // =============================
-
-                AtivarComparativo(excelApp);
+                AtivarComparativo(app);
 
                 MostrarResultado(resultado.Count, contasRemovidas.Count);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.ToString(), "Erro");
+            }
+            finally
+            {
+                // restaurar ambiente do Excel
+                app.ScreenUpdating = screen;
+                app.EnableEvents = events;
+                app.DisplayAlerts = alerts;
+                app.Calculation = calc;
             }
         }
 
@@ -299,33 +311,6 @@ namespace AnaliseH3
                 $"Contas removidas: {contasRemovidas}",
                 "Análise-H 3.0"
             );
-        }
-
-        private void RemoverPlanilhaSeExistir(Excel.Workbook wb, string nome)
-        {
-            Excel.Worksheet ws = null;
-
-            foreach (Excel.Worksheet sheet in wb.Worksheets)
-            {
-                if (sheet.Name == nome)
-                {
-                    ws = sheet;
-                    break;
-                }
-            }
-
-            if (ws != null)
-            {
-                var excel = wb.Application;
-
-                bool alerts = excel.DisplayAlerts;
-
-                excel.DisplayAlerts = false;
-
-                ws.Delete();
-
-                excel.DisplayAlerts = alerts;
-            }
         }
     }
 }

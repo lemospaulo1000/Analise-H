@@ -37,6 +37,7 @@
             this.TabAuditoria = this.Factory.CreateRibbonTab();
             this.groupAnalise = this.Factory.CreateRibbonGroup();
             this.btnExecutarAnalise = this.Factory.CreateRibbonButton();
+            this.btnDestacarSubgrupos = this.Factory.CreateRibbonButton();
             this.TabAuditoria.SuspendLayout();
             this.groupAnalise.SuspendLayout();
             this.SuspendLayout();
@@ -51,6 +52,7 @@
             // groupAnalise
             // 
             this.groupAnalise.Items.Add(this.btnExecutarAnalise);
+            this.groupAnalise.Items.Add(this.btnDestacarSubgrupos);
             this.groupAnalise.Label = "Análise-H";
             this.groupAnalise.Name = "groupAnalise";
             // 
@@ -59,6 +61,12 @@
             this.btnExecutarAnalise.Label = "Executar Análise-H";
             this.btnExecutarAnalise.Name = "btnExecutarAnalise";
             this.btnExecutarAnalise.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.btnExecutarAnalise_Click);
+            // 
+            // btnDestacarSubgrupos
+            // 
+            this.btnDestacarSubgrupos.Label = "Destacar Subgrupos";
+            this.btnDestacarSubgrupos.Name = "btnDestacarSubgrupos";
+            this.btnDestacarSubgrupos.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.btnDestacarSubgrupos_Click_1);
             // 
             // RibbonAuditoria
             // 
@@ -79,6 +87,7 @@
         internal Microsoft.Office.Tools.Ribbon.RibbonTab TabAuditoria;
         internal Microsoft.Office.Tools.Ribbon.RibbonGroup groupAnalise;
         internal Microsoft.Office.Tools.Ribbon.RibbonButton btnExecutarAnalise;
+        internal Microsoft.Office.Tools.Ribbon.RibbonButton btnDestacarSubgrupos;
     }
 
     partial class ThisRibbonCollection

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using AnaliseH3.ExcelLayer;
 
 namespace AnaliseH3
 {
@@ -21,6 +22,19 @@ namespace AnaliseH3
             executor.Executar(
                 Globals.ThisAddIn.Application
             );
+        }
+        private void btnDestacarSubgrupos_Click(object sender, RibbonControlEventArgs e)
+        {
+            var comando = new ComandoDestacarSubgrupos();
+
+            comando.Executar(Globals.ThisAddIn.Application);
+        }
+
+        private void btnDestacarSubgrupos_Click_1(object sender, RibbonControlEventArgs e)
+        {
+            var comando = new AnaliseH3.ExcelLayer.ComandoDestacarSubgrupos();
+
+            comando.Executar(Globals.ThisAddIn.Application);
         }
     }
 }
