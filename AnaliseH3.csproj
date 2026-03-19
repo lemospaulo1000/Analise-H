@@ -195,13 +195,15 @@
     <Compile Include="Core\Services\DetectorContasRemovidas.cs" />
     <Compile Include="Core\Services\DetectorReclassificacoes.cs" />
     <Compile Include="ExcelLayer\ComandoDestacarSubgrupos.cs" />
+    <Compile Include="ExcelLayer\ComandoLimpaIntra.cs" />
     <Compile Include="ExcelLayer\ExecutorAnalise.cs" />
     <Compile Include="ExcelLayer\GeradorContasRemovidas.cs" />
     <Compile Include="ExcelLayer\GeradorDrillDownConta.cs" />
     <Compile Include="ExcelLayer\GeradorMaterialidade.cs" />
     <Compile Include="ExcelLayer\GeradorPlanilhaComparativo.cs" />
     <Compile Include="ExcelLayer\GeradorReclassificacoes.cs" />
-    <Compile Include="ExcelLayer\LeitorBalanceteExcel.cs" />
+    <Compile Include="ExcelLayer\LeitorBalanceteExcelInterop.cs" />
+    <Compile Include="ExcelLayer\RelatorioLimpaIntraBuilder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -243,7 +245,15 @@
     </Compile>
     <AppDesigner Include="Properties\" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\SIGEFES_ANALISE\ProjetoLimpaIntra\SIGEFES.LimpaIntra\SIGEFES.LimpaIntra\SIGEFES.LimpaIntra.csproj">
+      <Project>{9b9cdb2c-7f77-943b-7239-4746528596ee}</Project>
+      <Name>SIGEFES.LimpaIntra</Name>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>

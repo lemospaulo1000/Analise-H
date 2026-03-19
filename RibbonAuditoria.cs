@@ -36,5 +36,13 @@ namespace AnaliseH3
 
             comando.Executar(Globals.ThisAddIn.Application);
         }
+
+        private void btnLimpaIntra_Click(object sender, RibbonControlEventArgs e)
+        {
+            var comando = new AnaliseH3.ExcelLayer.ComandoLimpaIntra();
+
+            comando.Executar(Globals.ThisAddIn.Application);
+        }
+
     }
 }

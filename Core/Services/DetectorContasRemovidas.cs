@@ -6,6 +6,12 @@ namespace AnaliseH3.Core.Services
 {
     public class DetectorContasRemovidas
     {
+
+        public void TestarMotor()
+        {
+            var motor = new SIGEFES.LimpaIntra.Servicos.MotorLimpaIntra();
+        }
+
         public List<ContaPeriodo> ObterContasRemovidas(
             Balancete periodoAtual,
             List<Balancete> periodosBase)

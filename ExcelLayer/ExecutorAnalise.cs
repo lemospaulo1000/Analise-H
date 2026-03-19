@@ -134,7 +134,7 @@ namespace AnaliseH3
             string anterior,
             string atual)
         {
-            var leitor = new LeitorBalanceteExcel();
+            var leitor = new LeitorBalanceteExcelInterop();
 
             var balanceteAnterior = leitor.Ler(excelApp, anterior, "Anterior");
             var balanceteAtual = leitor.Ler(excelApp, atual, "Atual");

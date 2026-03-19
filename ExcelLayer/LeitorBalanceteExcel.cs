@@ -1,127 +1,102 @@
-﻿using AnaliseH3.Core.Models;
-using Microsoft.Office.Interop.Excel;
-using System;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
+using NPOI.SS.UserModel;
+using NPOI.HSSF.UserModel;
+using NPOI.XSSF.UserModel;
+using SIGEFES.LimpaIntra.Modelos;
 
-namespace AnaliseH3.ExcelLayer
+namespace SIGEFES.LimpaIntra.LeituraExcel
 {
     public class LeitorBalanceteExcel
     {
-        public Balancete Ler(Application excelApp, string caminhoArquivo, string identificador)
+        public Dictionary<long, ContaContabil> Ler(string caminho)
         {
-            Workbook workbook = null;
-            Worksheet worksheet = null;
+            IWorkbook workbook = AbrirWorkbook(caminho);
 
-            try
+            var sheet = workbook.GetSheetAt(0);
+
+            var contas = new Dictionary<long, ContaContabil>();
+
+            for (int i = 1; i <= sheet.LastRowNum; i++)
             {
-                workbook = excelApp.Workbooks.Open(
-                    caminhoArquivo,
-                    ReadOnly: true
-                );
+                var row = sheet.GetRow(i);
 
-                worksheet = workbook.Worksheets[1];
+                if (row == null)
+                    continue;
 
-                // ----- Ler Competência (D7) -----
+                var contaCell = row.GetCell(0);
 
-                var competenciaRaw = worksheet.Range["D7"].Value2?.ToString()?.Trim();
+                if (contaCell == null)
+                    continue;
 
-                if (string.IsNullOrWhiteSpace(competenciaRaw))
-                    throw new InvalidOperationException("Competência (D7) não encontrada.");
+                var contaTexto = contaCell.ToString().Trim();
 
-                var partesData = competenciaRaw.Split('/');
+                if (string.IsNullOrWhiteSpace(contaTexto))
+                    continue;
 
-                if (partesData.Length != 2)
-                    throw new InvalidOperationException("Formato inválido de competência.");
+                var partes = contaTexto.Split(new string[] { " - " }, StringSplitOptions.None);
 
-                int mes = int.Parse(partesData[0]);
-                int ano = int.Parse(partesData[1]);
+                if (partes.Length == 0)
+                    continue;
 
-                var periodoContabil = new PeriodoContabil(mes, ano);
+                if (!long.TryParse(partes[0], out long codigo))
+                    continue;
 
-                var balancete = new Balancete(identificador, periodoContabil);
+                string descricao = partes.Length > 1 ? partes[1].Trim() : "";
 
-                // --------------------------------------------------
-                // DESCOBRIR ÚLTIMA LINHA REAL
-                // --------------------------------------------------
+                double saldoInicial = ObterValor(row.GetCell(2));
+                double debito = ObterValor(row.GetCell(3));
+                double credito = ObterValor(row.GetCell(4));
+                double saldoAtual = ObterValor(row.GetCell(5));
 
-                int ultimaLinha =
-                    worksheet.Cells[worksheet.Rows.Count, 1]
-                    .End(XlDirection.xlUp)
-                    .Row;
+                string dc = row.GetCell(6)?.ToString()?.Trim();
 
-                if (ultimaLinha < 10)
-                    return balancete;
-
-                // --------------------------------------------------
-                // LER BLOCO DE DADOS EM UMA ÚNICA OPERAÇÃO
-                // --------------------------------------------------
-
-                Range range = worksheet.Range["A1", $"F{ultimaLinha}"];
-
-                object[,] dados = range.Value2;
-
-                for (int linha = 10; linha <= ultimaLinha; linha++)
+                var conta = new ContaContabil
                 {
-                    var contaRaw = dados[linha, 1]?.ToString()?.Trim();
+                    Codigo = codigo,
+                    Descricao = descricao,
+                    SaldoInicial = saldoInicial,
+                    Debito = debito,
+                    Credito = credito,
+                    SaldoAtual = saldoAtual,
+                    DC = dc
+                };
 
-                    if (string.IsNullOrWhiteSpace(contaRaw))
-                        continue;
-
-                    // Divide código e descrição pelo separador " - "
-                    string[] partes = contaRaw.Split(new string[] { " - " }, StringSplitOptions.None);
-
-                    string codigo = partes[0].Trim();
-
-                    // garante que estamos nas classes contábeis 1,2,3 ou 4
-                    if (codigo.Length == 0 || !"1234".Contains(codigo[0]))
-                        continue;
-
-                    string descricao = partes.Length > 1 ? partes[1].Trim() : "";
-
-                    bool ehRedutora = descricao.Contains("(-)");
-
-                    double saldoAtual = 0.0;
-
-                    if (dados[linha, 5] != null)
-                    {
-                        if (dados[linha, 5] is double valor)
-                            saldoAtual = valor;
-                        else
-                            saldoAtual = Convert.ToDouble(dados[linha, 5]);
-                    }
-
-                    var dc = dados[linha, 6]?.ToString()?.Trim();
-
-                    if (dc == "D")
-                        saldoAtual = -Math.Abs(saldoAtual);
-                    else if (dc == "C")
-                        saldoAtual = Math.Abs(saldoAtual);
-                    else
-                        continue;
-
-                    var conta = new ContaPeriodo(codigo, descricao, saldoAtual);
-
-                    conta.EhRedutora = ehRedutora;
-
-                    balancete.AdicionarConta(conta);
-                }
-
-                return balancete;
+                contas[codigo] = conta;
             }
-            finally
-            {
-                if (workbook != null)
-                {
-                    workbook.Close(false);
-                    Marshal.ReleaseComObject(workbook);
-                }
 
-                if (worksheet != null)
+            return contas;
+        }
+
+        private IWorkbook AbrirWorkbook(string caminho)
+        {
+            using (var stream = new FileStream(caminho, FileMode.Open, FileAccess.Read))
+            {
+                if (Path.GetExtension(caminho).ToLower() == ".xlsx")
                 {
-                    Marshal.ReleaseComObject(worksheet);
+                    return new XSSFWorkbook(stream); // Excel moderno
+                }
+                else
+                {
+                    return new HSSFWorkbook(stream); // Excel antigo
                 }
             }
+        }
+
+        private double ObterValor(ICell cell)
+        {
+            if (cell == null)
+                return 0;
+
+            if (cell.CellType == CellType.Numeric)
+                return cell.NumericCellValue;
+
+            if (double.TryParse(cell.ToString(), out double valor))
+                return valor;
+
+            return 0;
         }
     }
 }

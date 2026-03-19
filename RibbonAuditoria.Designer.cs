@@ -38,14 +38,18 @@
             this.groupAnalise = this.Factory.CreateRibbonGroup();
             this.btnExecutarAnalise = this.Factory.CreateRibbonButton();
             this.btnDestacarSubgrupos = this.Factory.CreateRibbonButton();
+            this.Grp_limparIntra = this.Factory.CreateRibbonGroup();
+            this.btnLimpaIntra = this.Factory.CreateRibbonButton();
             this.TabAuditoria.SuspendLayout();
             this.groupAnalise.SuspendLayout();
+            this.Grp_limparIntra.SuspendLayout();
             this.SuspendLayout();
             // 
             // TabAuditoria
             // 
             this.TabAuditoria.ControlId.ControlIdType = Microsoft.Office.Tools.Ribbon.RibbonControlIdType.Office;
             this.TabAuditoria.Groups.Add(this.groupAnalise);
+            this.TabAuditoria.Groups.Add(this.Grp_limparIntra);
             this.TabAuditoria.Label = "Auditoria";
             this.TabAuditoria.Name = "TabAuditoria";
             // 
@@ -58,15 +62,39 @@
             // 
             // btnExecutarAnalise
             // 
-            this.btnExecutarAnalise.Label = "Executar Análise-H";
+            this.btnExecutarAnalise.Label = "Análise-H";
             this.btnExecutarAnalise.Name = "btnExecutarAnalise";
+            this.btnExecutarAnalise.OfficeImageId = "CharacterSpacingGallery";
+            this.btnExecutarAnalise.ScreenTip = "Análise Horizontal";
+            this.btnExecutarAnalise.ShowImage = true;
+            this.btnExecutarAnalise.SuperTip = "Realiza análise horizontal a partir do balancete anterior e do exercício atual";
             this.btnExecutarAnalise.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.btnExecutarAnalise_Click);
             // 
             // btnDestacarSubgrupos
             // 
-            this.btnDestacarSubgrupos.Label = "Destacar Subgrupos";
+            this.btnDestacarSubgrupos.Label = "Destaca grupos";
             this.btnDestacarSubgrupos.Name = "btnDestacarSubgrupos";
+            this.btnDestacarSubgrupos.OfficeImageId = "DrillInto";
+            this.btnDestacarSubgrupos.ScreenTip = "Destaca Subgrupos materiais";
+            this.btnDestacarSubgrupos.ShowImage = true;
+            this.btnDestacarSubgrupos.SuperTip = "Destaca subgrupos materiais do balancete com base na aba Materialidade";
             this.btnDestacarSubgrupos.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.btnDestacarSubgrupos_Click_1);
+            // 
+            // Grp_limparIntra
+            // 
+            this.Grp_limparIntra.Items.Add(this.btnLimpaIntra);
+            this.Grp_limparIntra.Label = "Limpar_Intra";
+            this.Grp_limparIntra.Name = "Grp_limparIntra";
+            // 
+            // btnLimpaIntra
+            // 
+            this.btnLimpaIntra.Label = "Intra OFSS";
+            this.btnLimpaIntra.Name = "btnLimpaIntra";
+            this.btnLimpaIntra.OfficeImageId = "AccessRecycleBin";
+            this.btnLimpaIntra.ScreenTip = "Excluir contas Intra OFSS";
+            this.btnLimpaIntra.ShowImage = true;
+            this.btnLimpaIntra.SuperTip = "Forneça balancete do SIGEFES que será excluídas Intra OFSS e apresentado resumos";
+            this.btnLimpaIntra.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.btnLimpaIntra_Click);
             // 
             // RibbonAuditoria
             // 
@@ -78,6 +106,8 @@
             this.TabAuditoria.PerformLayout();
             this.groupAnalise.ResumeLayout(false);
             this.groupAnalise.PerformLayout();
+            this.Grp_limparIntra.ResumeLayout(false);
+            this.Grp_limparIntra.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -88,6 +118,8 @@
         internal Microsoft.Office.Tools.Ribbon.RibbonGroup groupAnalise;
         internal Microsoft.Office.Tools.Ribbon.RibbonButton btnExecutarAnalise;
         internal Microsoft.Office.Tools.Ribbon.RibbonButton btnDestacarSubgrupos;
+        internal Microsoft.Office.Tools.Ribbon.RibbonGroup Grp_limparIntra;
+        internal Microsoft.Office.Tools.Ribbon.RibbonButton btnLimpaIntra;
     }
 
     partial class ThisRibbonCollection
